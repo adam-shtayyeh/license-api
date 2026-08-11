@@ -53,7 +53,6 @@ def home():
 
 @app.route("/check-id", methods=["POST"])
 def check_license():
-
     data = request.get_json(silent=True)
 
     print("Received:", data)
@@ -85,13 +84,18 @@ def check_license():
 
     return jsonify({
         "licensed": exists
-    })
+    }), 200
 
 
 @app.route("/add-id", methods=["POST"])
 def add_id():
-
     data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({
+            "success": False,
+            "message": "No data received"
+        }), 400
 
     android_id = (
         data.get("androidId")
@@ -109,7 +113,6 @@ def add_id():
     cursor = conn.cursor()
 
     try:
-
         cursor.execute(
             """
             INSERT INTO licenses (android_id)
@@ -124,7 +127,7 @@ def add_id():
         return jsonify({
             "success": True,
             "message": "ID added"
-        })
+        }), 200
 
     finally:
         cursor.close()
@@ -133,8 +136,13 @@ def add_id():
 
 @app.route("/delete-id", methods=["POST"])
 def delete_id():
-
     data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({
+            "success": False,
+            "message": "No data received"
+        }), 400
 
     android_id = (
         data.get("androidId")
@@ -152,28 +160,29 @@ def delete_id():
     cursor = conn.cursor()
 
     try:
-
         cursor.execute(
             "DELETE FROM licenses WHERE android_id = %s",
             (android_id,)
         )
 
+        deleted = cursor.rowcount > 0
         conn.commit()
 
         return jsonify({
-            "success": True,
-            "message": "ID deleted"
-        })
+            "success": deleted,
+            "message": "ID deleted" if deleted else "ID not found"
+        }), 200
 
     finally:
         cursor.close()
         conn.close()
 
 
+# مهم لـ Render / Gunicorn
+create_table()
+
+
 if __name__ == "__main__":
-
-    create_table()
-
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000))
